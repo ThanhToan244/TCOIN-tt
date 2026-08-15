@@ -2,14 +2,14 @@ import telebot
 import time
 import requests
 import threading
+import os
+from flask import Flask
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
 
 TOKEN = "8928629119:AAEsNQyk81o5zSmykc5RO8jRJCBZ0zu7KOI"
 FIREBASE_URL = "https://tcoin-e983b-default-rtdb.firebaseio.com/"
 
 bot = telebot.TeleBot(TOKEN)
-
-# Đã xác định Thread ID của "Band FF" là 1
 ALLOWED_THREAD_ID = 1
 
 CONFIG_WEB = {
@@ -22,6 +22,18 @@ bot.set_my_commands([
     BotCommand("doithuong", "Đổi TCOIN lấy Key (1 ngày, 1 tuần, 1 tháng)"),
     BotCommand("help", "Hướng dẫn sử dụng bot")
 ])
+
+# --- TẠO WEB SERVER NHỎ ĐỂ ĐÁP ỨNG CỔNG PORT CỦA RENDER (GÓI FREE) ---
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot TCOIN is running!"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
+# ------------------------------------------------------------------
 
 def delete_message_later(chat_id, message_id, delay_seconds=600):
     time.sleep(delay_seconds)
@@ -315,6 +327,9 @@ def handle_other_messages(message):
         
     send_auto_delete_msg(chat_id, reply_text, reply_to_message_id=message.message_id, message_thread_id=thread_id)
 
-print("Bot TCOIN (Chỉ chạy ở Band FF - Thread ID: 1) đang chạy...")
-bot.infinity_polling(skip_pending=True)
-                        
+if __name__ == "__main__":
+    # Chạy Flask ở một luồng riêng để mở port cho Render web service miễn phí
+    threading.Thread(target=run_flask, daemon=True).start()
+    print("Bot TCOIN kèm Flask Web Server đang chạy...")
+    bot.infinity_polling(skip_pending=True)
+    
