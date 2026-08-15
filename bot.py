@@ -293,6 +293,6 @@ def handle_other_messages(message):
         
     send_auto_delete_msg(chat_id, reply_text, reply_to_message_id=message.message_id)
 
-print("Bot TCOIN đang chạy...")
+print("Bot TCOIN (Trích dẫn tin nhắn - Reply) đang chạy...")
 bot.infinity_polling(skip_pending=True)
-    
+        
