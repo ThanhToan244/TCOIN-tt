@@ -2,11 +2,10 @@ import telebot
 import time
 import requests
 import threading
-import os
-from flask import Flask
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
 
-TOKEN = "8928629119:AAEsNQyk81o5zSmykc5RO8jRJCBZ0zu7KOI"
+# Token mới đã được cập nhật
+TOKEN = "8928629119:AAHFjOTJHrdwDHHJ8qqWkKE_vrF5kiC7lok"
 FIREBASE_URL = "https://tcoin-e983b-default-rtdb.firebaseio.com/"
 
 bot = telebot.TeleBot(TOKEN)
@@ -22,18 +21,6 @@ bot.set_my_commands([
     BotCommand("doithuong", "Đổi TCOIN lấy Key (1 lần, 1 ngày, 1 tuần, 1 tháng)"),
     BotCommand("help", "Hướng dẫn sử dụng bot")
 ])
-
-# --- WEB SERVER ĐỂ ĐÁP ỨNG PORT CỦA RENDER ---
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "Bot TCOIN is running!"
-
-def run_flask():
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
-# ---------------------------------------------
 
 def delete_message_later(chat_id, message_id, delay_seconds=600):
     time.sleep(delay_seconds)
@@ -335,7 +322,6 @@ def handle_other_messages(message):
     send_auto_delete_msg(chat_id, reply_text, reply_to_message_id=message.message_id, message_thread_id=thread_id)
 
 if __name__ == "__main__":
-    threading.Thread(target=run_flask, daemon=True).start()
-    print("Bot TCOIN (Kèm Flask & Key 1 lần) đang chạy...")
+    print("Bot TCOIN đang chạy với token mới...")
     bot.infinity_polling(skip_pending=True)
     
