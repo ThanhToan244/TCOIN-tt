@@ -1,16 +1,13 @@
-import os
+import telebot
 import time
 import requests
 import threading
-import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
 
-# --- CẤU HÌNH ---
 TOKEN = "8928629119:AAGZjEfgCAS6vrkbMyMJvcX_vQUuAnM-X6s"
 FIREBASE_URL = "https://tcoin-e983b-default-rtdb.firebaseio.com/"
 
 bot = telebot.TeleBot(TOKEN)
-ALLOWED_THREAD_ID = 1
 
 CONFIG_WEB = {
     "link4m": {"limit": 2, "tcoin": 1000, "name": "Link4M", "api_token": "667da5e0512ac00cba52fb6f"}
@@ -19,7 +16,7 @@ CONFIG_WEB = {
 bot.set_my_commands([
     BotCommand("start", "Mở menu chính & vượt link nhận TCOIN"),
     BotCommand("tk", "Kiểm tra TCOIN và số lượt vượt hôm nay"),
-    BotCommand("doithuong", "Đổi TCOIN lấy Key (1 lần, 1 ngày, 1 tuần, 1 tháng)"),
+    BotCommand("doithuong", "Đổi TCOIN lấy Lượt SD hoặc Key VIP"),
     BotCommand("help", "Hướng dẫn sử dụng bot")
 ])
 
@@ -30,18 +27,14 @@ def delete_message_later(chat_id, message_id, delay_seconds=600):
     except:
         pass
 
-def send_auto_delete_msg(chat_id, text, parse_mode="Markdown", reply_markup=None, reply_to_message_id=None, message_thread_id=None):
-    kwargs = {
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": parse_mode,
-        "reply_markup": reply_markup,
-        "reply_to_message_id": reply_to_message_id
-    }
-    if message_thread_id:
-        kwargs["message_thread_id"] = message_thread_id
-        
-    sent = bot.send_message(**kwargs)
+def send_auto_delete_msg(chat_id, text, parse_mode="Markdown", reply_markup=None, reply_to_message_id=None):
+    sent = bot.send_message(
+        chat_id, 
+        text, 
+        parse_mode=parse_mode, 
+        reply_markup=reply_markup, 
+        reply_to_message_id=reply_to_message_id
+    )
     t = threading.Thread(target=delete_message_later, args=(chat_id, sent.message_id, 600))
     t.daemon = True
     t.start()
@@ -57,27 +50,15 @@ def edit_or_send(call, text, reply_markup=None, parse_mode="Markdown"):
             reply_markup=reply_markup
         )
     except:
-        thread_id = getattr(call.message, 'message_thread_id', None)
-        send_auto_delete_msg(call.message.chat.id, text, parse_mode=parse_mode, reply_markup=reply_markup, message_thread_id=thread_id)
-
-def check_thread(message):
-    thread_id = getattr(message, 'message_thread_id', None)
-    if ALLOWED_THREAD_ID is not None and thread_id != ALLOWED_THREAD_ID:
-        return False
-    return True
-
-@bot.message_handler(func=lambda m: not check_thread(m))
-def ignore_other_threads(message):
-    pass
+        send_auto_delete_msg(call.message.chat.id, text, parse_mode=parse_mode, reply_markup=reply_markup)
 
 @bot.message_handler(commands=['start', 'help'])
 def start_cmd(m):
     user_name = m.from_user.first_name
-    thread_id = getattr(m, 'message_thread_id', None)
     text = (
         f"🤖 *HỆ THỐNG VƯỢT LINK & TÍCH LŨY TCOIN*\n"
         f"──────────────────────────\n"
-        f"Chào {user_name}! Hoàn thành vượt link Link4M để nhận thưởng TCOIN và đổi key VIP.\n"
+        f"Chào {user_name}! Hoàn thành vượt link Link4M để nhận thưởng TCOIN và đổi quà VIP.\n"
         f"Chọn dịch vụ bên dưới để bắt đầu:"
     )
     
@@ -85,10 +66,10 @@ def start_cmd(m):
     markup.add(
         InlineKeyboardButton("🌐 Vượt Link4M (+1,000 TCOIN)", callback_data="v_link4m"),
         InlineKeyboardButton("👤 Tài Khoản & TCOIN", callback_data="menu_tk"),
-        InlineKeyboardButton("🎁 Đổi Thưởng Key", callback_data="menu_doithuong")
+        InlineKeyboardButton("🎁 Đổi Thưởng Quà", callback_data="menu_doithuong")
     )
     
-    send_auto_delete_msg(m.chat.id, text, reply_markup=markup, reply_to_message_id=m.message_id, message_thread_id=thread_id)
+    send_auto_delete_msg(m.chat.id, text, reply_markup=markup, reply_to_message_id=m.message_id)
 
 def handle_vuot_link(call, web_key):
     user_id = call.from_user.id
@@ -136,25 +117,26 @@ def handle_vuot_link(call, web_key):
 
 @bot.message_handler(commands=['tk'])
 def tk_cmd(m):
-    thread_id = getattr(m, 'message_thread_id', None)
-    show_account_info_msg(m.chat.id, m.from_user.id, m.from_user.first_name, m.message_id, thread_id)
+    show_account_info_msg(m.chat.id, m.from_user.id, m.from_user.first_name, m.message_id)
 
-def show_account_info_msg(chat_id, user_id, user_name, reply_to_id=None, thread_id=None):
+def show_account_info_msg(chat_id, user_id, user_name, reply_to_id=None):
     user_id_str = str(user_id)
     today_str = time.strftime("%Y-%m-%d")
     try:
         user_data = requests.get(f"{FIREBASE_URL}users/{user_id_str}.json", timeout=5).json() or {}
         tcoin = user_data.get("tcoin", 0)
+        extra_uses = user_data.get("extra_uses", 0)
         today_data = user_data.get(today_str, {})
         l4m_c = today_data.get("link4m", 0)
     except:
-        tcoin, l4m_c = 0, 0
+        tcoin, extra_uses, l4m_c = 0, 0, 0
 
     text = (
         f"👤 *THÔNG TIN TÀI KHOẢN*\n"
         f"• Tên: {user_name}\n"
         f"• ID Telegram: `{user_id}`\n"
-        f"• 💰 TCOIN hiện có: *{tcoin} TCOIN*\n\n"
+        f"• 💰 TCOIN hiện có: *{tcoin} TCOIN*\n"
+        f"• ⚡ Lượt sử dụng thêm: *{extra_uses} lượt*\n\n"
         f"📊 *Số lượt vượt Link4M hôm nay*: {l4m_c}/2"
     )
     
@@ -163,7 +145,7 @@ def show_account_info_msg(chat_id, user_id, user_name, reply_to_id=None, thread_
         InlineKeyboardButton("🔄 Làm mới", callback_data="menu_tk"),
         InlineKeyboardButton("⬅️ Quay lại", callback_data="menu_home")
     )
-    send_auto_delete_msg(chat_id, text, reply_markup=markup, reply_to_message_id=reply_to_id, message_thread_id=thread_id)
+    send_auto_delete_msg(chat_id, text, reply_markup=markup, reply_to_message_id=reply_to_id)
 
 def show_account_info_call(call):
     user_id = call.from_user.id
@@ -172,16 +154,18 @@ def show_account_info_call(call):
     try:
         user_data = requests.get(f"{FIREBASE_URL}users/{user_id_str}.json", timeout=5).json() or {}
         tcoin = user_data.get("tcoin", 0)
+        extra_uses = user_data.get("extra_uses", 0)
         today_data = user_data.get(today_str, {})
         l4m_c = today_data.get("link4m", 0)
     except:
-        tcoin, l4m_c = 0, 0
+        tcoin, extra_uses, l4m_c = 0, 0, 0
 
     text = (
         f"👤 *THÔNG TIN TÀI KHOẢN*\n"
         f"• Tên: {call.from_user.first_name}\n"
         f"• ID Telegram: `{user_id}`\n"
-        f"• 💰 TCOIN hiện có: *{tcoin} TCOIN*\n\n"
+        f"• 💰 TCOIN hiện có: *{tcoin} TCOIN*\n"
+        f"• ⚡ Lượt sử dụng thêm: *{extra_uses} lượt*\n\n"
         f"📊 *Số lượt vượt Link4M hôm nay*: {l4m_c}/2"
     )
     
@@ -194,42 +178,41 @@ def show_account_info_call(call):
 
 @bot.message_handler(commands=['doithuong'])
 def doithuong_cmd(m):
-    thread_id = getattr(m, 'message_thread_id', None)
-    show_doi_thuong_msg(m.chat.id, m.message_id, thread_id)
+    show_doi_thuong_msg(m.chat.id, m.message_id)
 
-def show_doi_thuong_msg(chat_id, reply_to_id=None, thread_id=None):
+def show_doi_thuong_msg(chat_id, reply_to_id=None):
     text = (
-        f"🎁 *HỆ THỐNG ĐỔI THƯỞNG KEY*\n"
+        f"🎁 *HỆ THỐNG ĐỔI THƯỞNG*\n"
         f"──────────────────────────\n"
         f"Chọn mốc TCOIN bạn muốn đổi:\n\n"
-        f"• 1,000 TCOIN ➔ Key Dùng 1 Lần\n"
-        f"• 3,000 TCOIN ➔ Key 1 Ngày\n"
-        f"• 10,000 TCOIN ➔ Key 1 Tuần\n"
-        f"• 30,000 TCOIN ➔ Key 1 Tháng"
+        f"0️⃣ 1,000 TCOIN ➔ 1 Lượt Sử Dụng\n"
+        f"1️⃣ 3,000 TCOIN ➔ Key 1 Ngày\n"
+        f"2️⃣ 10,000 TCOIN ➔ Key 1 Tuần\n"
+        f"3️⃣ 30,000 TCOIN ➔ Key 1 Tháng"
     )
     markup = InlineKeyboardMarkup(row_width=1)
     markup.add(
-        InlineKeyboardButton("🎟️ Đổi Key 1 Lần (1k TCOIN)", callback_data="doi_1lan"),
+        InlineKeyboardButton("⚡ Đổi 1 Lượt Sử Dụng (1k TCOIN)", callback_data="doi_1luot"),
         InlineKeyboardButton("🎟️ Đổi Key 1 Ngày (3k TCOIN)", callback_data="doi_1ngay"),
         InlineKeyboardButton("🎟️ Đổi Key 1 Tuần (10k TCOIN)", callback_data="doi_1tuan"),
         InlineKeyboardButton("🎟️ Đổi Key 1 Tháng (30k TCOIN)", callback_data="doi_1thang"),
         InlineKeyboardButton("⬅️ Quay lại Menu Chính", callback_data="menu_home")
     )
-    send_auto_delete_msg(chat_id, text, reply_markup=markup, reply_to_message_id=reply_to_id, message_thread_id=thread_id)
+    send_auto_delete_msg(chat_id, text, reply_markup=markup, reply_to_message_id=reply_to_id)
 
 def show_doi_thuong_call(call):
     text = (
-        f"🎁 *HỆ THỐNG ĐỔI THƯỞNG KEY*\n"
+        f"🎁 *HỆ THỐNG ĐỔI THƯỞNG*\n"
         f"──────────────────────────\n"
         f"Chọn mốc TCOIN bạn muốn đổi:\n\n"
-        f"• 1,000 TCOIN ➔ Key Dùng 1 Lần\n"
-        f"• 3,000 TCOIN ➔ Key 1 Ngày\n"
-        f"• 10,000 TCOIN ➔ Key 1 Tuần\n"
-        f"• 30,000 TCOIN ➔ Key 1 Tháng"
+        f"0️⃣ 1,000 TCOIN ➔ 1 Lượt Sử Dụng\n"
+        f"1️⃣ 3,000 TCOIN ➔ Key 1 Ngày\n"
+        f"2️⃣ 10,000 TCOIN ➔ Key 1 Tuần\n"
+        f"3️⃣ 30,000 TCOIN ➔ Key 1 Tháng"
     )
     markup = InlineKeyboardMarkup(row_width=1)
     markup.add(
-        InlineKeyboardButton("🎟️ Đổi Key 1 Lần (1k TCOIN)", callback_data="doi_1lan"),
+        InlineKeyboardButton("⚡ Đổi 1 Lượt Sử Dụng (1k TCOIN)", callback_data="doi_1luot"),
         InlineKeyboardButton("🎟️ Đổi Key 1 Ngày (3k TCOIN)", callback_data="doi_1ngay"),
         InlineKeyboardButton("🎟️ Đổi Key 1 Tuần (10k TCOIN)", callback_data="doi_1tuan"),
         InlineKeyboardButton("🎟️ Đổi Key 1 Tháng (30k TCOIN)", callback_data="doi_1thang"),
@@ -241,14 +224,14 @@ def show_home_menu(call):
     text = (
         f"🤖 *HỆ THỐNG VƯỢT LINK & TÍCH LŨY TCOIN*\n"
         f"──────────────────────────\n"
-        f"Chào {call.from_user.first_name}! Hoàn thành vượt link Link4M để nhận thưởng TCOIN và đổi key VIP.\n"
+        f"Chào {call.from_user.first_name}! Hoàn thành vượt link Link4M để nhận thưởng TCOIN và đổi quà VIP.\n"
         f"Chọn dịch vụ bên dưới để bắt đầu:"
     )
     markup = InlineKeyboardMarkup(row_width=1)
     markup.add(
         InlineKeyboardButton("🌐 Vượt Link4M (+1,000 TCOIN)", callback_data="v_link4m"),
         InlineKeyboardButton("👤 Tài Khoản & TCOIN", callback_data="menu_tk"),
-        InlineKeyboardButton("🎁 Đổi Thưởng Key", callback_data="menu_doithuong")
+        InlineKeyboardButton("🎁 Đổi Thưởng Quà", callback_data="menu_doithuong")
     )
     edit_or_send(call, text, reply_markup=markup)
 
@@ -273,45 +256,53 @@ def callback_handler(call):
 
 def process_doi_thuong(call, package):
     user_id = call.from_user.id
-    costs = {"1lan": 1000, "1ngay": 3000, "1tuan": 10000, "1thang": 30000}
-    names = {"1lan": "Key Dùng 1 Lần", "1ngay": "Key 1 Ngày", "1tuan": "Key 1 Tuần", "1thang": "Key 1 Tháng"}
-    
-    if package not in costs:
-        return
-        
+    costs = {"1luot": 1000, "1ngay": 3000, "1tuan": 10000, "1thang": 30000}
+    names = {"1luot": "1 Lượt Sử Dụng", "1ngay": "Key 1 Ngày", "1tuan": "Key 1 Tuần", "1thang": "Key 1 Tháng"}
     required_tcoin = costs[package]
+    
     user_id_str = str(user_id)
     try:
         user_data = requests.get(f"{FIREBASE_URL}users/{user_id_str}.json", timeout=5).json() or {}
         current_tcoin = user_data.get("tcoin", 0)
+        current_extra = user_data.get("extra_uses", 0)
     except:
         current_tcoin = 0
+        current_extra = 0
         
     if current_tcoin < required_tcoin:
         bot.answer_callback_query(call.id, f"❌ Bạn không đủ TCOIN! Cần {required_tcoin} TCOIN nhưng bạn có {current_tcoin} TCOIN.", show_alert=True)
         return
         
     new_tcoin = current_tcoin - required_tcoin
-    generated_key = f"BANDVIP-{package.upper()}-{int(time.time())}"
-    
-    requests.patch(f"{FIREBASE_URL}users/{user_id_str}.json", json={"tcoin": new_tcoin})
     
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("⬅️ Quay lại Menu Chính", callback_data="menu_home"))
     
-    text = (
-        f"🎉 *ĐỔI THƯỞNG THÀNH CÔNG!*\n"
-        f"• Phần quà: *{names[package]}*\n"
-        f"• Mã Key của bạn: `{generated_key}`\n"
-        f"• TCOIN còn lại: {new_tcoin} TCOIN"
-    )
+    if package == "1luot":
+        new_extra = current_extra + 1
+        requests.patch(f"{FIREBASE_URL}users/{user_id_str}.json", json={"tcoin": new_tcoin, "extra_uses": new_extra})
+        text = (
+            f"🎉 *ĐỔI LƯỢT THÀNH CÔNG!*\n"
+            f"• Phần quà: *{names[package]}*\n"
+            f"• Tổng lượt sử dụng hiện có: `{new_extra} lượt`\n"
+            f"• TCOIN còn lại: {new_tcoin} TCOIN"
+        )
+    else:
+        generated_key = f"BANDVIP-{package.upper()}-{int(time.time())}"
+        requests.patch(f"{FIREBASE_URL}users/{user_id_str}.json", json={"tcoin": new_tcoin})
+        text = (
+            f"🎉 *ĐỔI THƯỞNG THÀNH CÔNG!*\n"
+            f"• Phần quà: *{names[package]}*\n"
+            f"• Mã Key của bạn: `{generated_key}`\n"
+            f"• TCOIN còn lại: {new_tcoin} TCOIN"
+        )
+        
     edit_or_send(call, text, reply_markup=markup)
 
 @bot.message_handler(func=lambda message: True)
 def handle_other_messages(message):
     text_lower = message.text.lower()
     chat_id = message.chat.id
-    thread_id = getattr(message, 'message_thread_id', None)
     
     if "admin" in text_lower or "chủ" in text_lower:
         reply_text = "📞 Vui lòng liên hệ Admin nếu bạn cần hỗ trợ thêm nhé!"
@@ -320,9 +311,8 @@ def handle_other_messages(message):
     else:
         reply_text = "🤖 Tôi là bot quản lý TCOIN tự động. Vui lòng sử dụng lệnh `/start` để mở bảng điều khiển chính."
         
-    send_auto_delete_msg(chat_id, reply_text, reply_to_message_id=message.message_id, message_thread_id=thread_id)
+    send_auto_delete_msg(chat_id, reply_text, reply_to_message_id=message.message_id)
 
-if __name__ == "__main__":
-    print("Bot TCOIN đang chạy thuần túy với Token mới...")
-    bot.infinity_polling(skip_pending=True)
+print("Bot TCOIN đang chạy...")
+bot.infinity_polling(skip_pending=True)
     
