@@ -19,11 +19,11 @@ CONFIG_WEB = {
 bot.set_my_commands([
     BotCommand("start", "Mở menu chính & vượt link nhận TCOIN"),
     BotCommand("tk", "Kiểm tra TCOIN và số lượt vượt hôm nay"),
-    BotCommand("doithuong", "Đổi TCOIN lấy Key (1 ngày, 1 tuần, 1 tháng)"),
+    BotCommand("doithuong", "Đổi TCOIN lấy Key (1 lần, 1 ngày, 1 tuần, 1 tháng)"),
     BotCommand("help", "Hướng dẫn sử dụng bot")
 ])
 
-# --- TẠO WEB SERVER NHỎ ĐỂ ĐÁP ỨNG CỔNG PORT CỦA RENDER (GÓI FREE) ---
+# --- WEB SERVER ĐỂ ĐÁP ỨNG PORT CỦA RENDER ---
 app = Flask(__name__)
 
 @app.route('/')
@@ -33,7 +33,7 @@ def home():
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
-# ------------------------------------------------------------------
+# ---------------------------------------------
 
 def delete_message_later(chat_id, message_id, delay_seconds=600):
     time.sleep(delay_seconds)
@@ -214,12 +214,14 @@ def show_doi_thuong_msg(chat_id, reply_to_id=None, thread_id=None):
         f"🎁 *HỆ THỐNG ĐỔI THƯỞNG KEY*\n"
         f"──────────────────────────\n"
         f"Chọn mốc TCOIN bạn muốn đổi:\n\n"
+        f"0️⃣ 1,000 TCOIN ➔ Key Dùng 1 Lần\n"
         f"1️⃣ 3,000 TCOIN ➔ Key 1 Ngày\n"
         f"2️⃣ 10,000 TCOIN ➔ Key 1 Tuần\n"
         f"3️⃣ 30,000 TCOIN ➔ Key 1 Tháng"
     )
     markup = InlineKeyboardMarkup(row_width=1)
     markup.add(
+        InlineKeyboardButton("🎟️ Đổi Key 1 Lần (1k TCOIN)", callback_data="doi_1lan"),
         InlineKeyboardButton("🎟️ Đổi Key 1 Ngày (3k TCOIN)", callback_data="doi_1ngay"),
         InlineKeyboardButton("🎟️ Đổi Key 1 Tuần (10k TCOIN)", callback_data="doi_1tuan"),
         InlineKeyboardButton("🎟️ Đổi Key 1 Tháng (30k TCOIN)", callback_data="doi_1thang"),
@@ -232,12 +234,14 @@ def show_doi_thuong_call(call):
         f"🎁 *HỆ THỐNG ĐỔI THƯỞNG KEY*\n"
         f"──────────────────────────\n"
         f"Chọn mốc TCOIN bạn muốn đổi:\n\n"
+        f"0️⃣ 1,000 TCOIN ➔ Key Dùng 1 Lần\n"
         f"1️⃣ 3,000 TCOIN ➔ Key 1 Ngày\n"
         f"2️⃣ 10,000 TCOIN ➔ Key 1 Tuần\n"
         f"3️⃣ 30,000 TCOIN ➔ Key 1 Tháng"
     )
     markup = InlineKeyboardMarkup(row_width=1)
     markup.add(
+        InlineKeyboardButton("🎟️ Đổi Key 1 Lần (1k TCOIN)", callback_data="doi_1lan"),
         InlineKeyboardButton("🎟️ Đổi Key 1 Ngày (3k TCOIN)", callback_data="doi_1ngay"),
         InlineKeyboardButton("🎟️ Đổi Key 1 Tuần (10k TCOIN)", callback_data="doi_1tuan"),
         InlineKeyboardButton("🎟️ Đổi Key 1 Tháng (30k TCOIN)", callback_data="doi_1thang"),
@@ -281,10 +285,13 @@ def callback_handler(call):
 
 def process_doi_thuong(call, package):
     user_id = call.from_user.id
-    costs = {"1ngay": 3000, "1tuan": 10000, "1thang": 30000}
-    names = {"1ngay": "Key 1 Ngày", "1tuan": "Key 1 Tuần", "1thang": "Key 1 Tháng"}
-    required_tcoin = costs[package]
+    costs = {"1lan": 1000, "1ngay": 3000, "1tuan": 10000, "1thang": 30000}
+    names = {"1lan": "Key Dùng 1 Lần", "1ngay": "Key 1 Ngày", "1tuan": "Key 1 Tuần", "1thang": "Key 1 Tháng"}
     
+    if package not in costs:
+        return
+        
+    required_tcoin = costs[package]
     user_id_str = str(user_id)
     try:
         user_data = requests.get(f"{FIREBASE_URL}users/{user_id_str}.json", timeout=5).json() or {}
@@ -328,8 +335,7 @@ def handle_other_messages(message):
     send_auto_delete_msg(chat_id, reply_text, reply_to_message_id=message.message_id, message_thread_id=thread_id)
 
 if __name__ == "__main__":
-    # Chạy Flask ở một luồng riêng để mở port cho Render web service miễn phí
     threading.Thread(target=run_flask, daemon=True).start()
-    print("Bot TCOIN kèm Flask Web Server đang chạy...")
+    print("Bot TCOIN (Kèm Flask & Key 1 lần) đang chạy...")
     bot.infinity_polling(skip_pending=True)
     
