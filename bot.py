@@ -1,13 +1,23 @@
-Import telebot
+
+import telebot
 import time
 import requests
 import threading
+import os
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
+from flask import Flask
 
-TOKEN = "8928629119:AAEsNQyk81o5zSmykc5RO8jRJCBZ0zu7KOI"
+TOKEN = "8928629119:AAGZjEfgCAS6vrkbMyMJvcX_vQUuAnM-X6s"
 FIREBASE_URL = "https://tcoin-e983b-default-rtdb.firebaseio.com/"
 
 bot = telebot.TeleBot(TOKEN)
+
+# Tạo Flask app để qua mặt cơ chế quét cổng của Render (Miễn phí 100%)
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot TCOIN is running successfully!"
 
 CONFIG_WEB = {
     "link4m": {"limit": 2, "tcoin": 1000, "name": "Link4M", "api_token": "667da5e0512ac00cba52fb6f"}
@@ -293,5 +303,13 @@ def handle_other_messages(message):
         
     send_auto_delete_msg(chat_id, reply_text, reply_to_message_id=message.message_id)
 
-print("Bot TCOIN (Trích dẫn tin nhắn - Reply) đang chạy...")
-bot.infinity_polling(skip_pending=True)
+if __name__ == "__main__":
+    # Lấy cổng tự động do Render cấp để không bị lỗi xung đột hoặc thiếu cổng
+    port = int(os.environ.get("PORT", 10000))
+    
+    # Chạy Flask ở một luồng riêng biệt để đáp ứng yêu cầu mở cổng HTTP của Render
+    threading.Thread(target=lambda: app.run(host="0.0.0.0", port=port), daemon=True).start()
+    
+    print("Bot TCOIN và Flask server đang chạy...")
+    bot.infinity_polling(skip_pending=True)
+    
