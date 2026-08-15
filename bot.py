@@ -4,7 +4,7 @@ import requests
 import threading
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
 
-TOKEN = "8928629119:AAEsNQyk81o5zSmykc5RO8jRJCBZ0zu7KOI"
+TOKEN = "8928629119:AAHeOfqn6DbbsMSNaO4GSYjgHdokLR7-oAg"
 FIREBASE_URL = "https://tcoin-e983b-default-rtdb.firebaseio.com/"
 
 bot = telebot.TeleBot(TOKEN)
