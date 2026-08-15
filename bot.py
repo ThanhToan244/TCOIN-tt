@@ -9,6 +9,9 @@ FIREBASE_URL = "https://tcoin-e983b-default-rtdb.firebaseio.com/"
 
 bot = telebot.TeleBot(TOKEN)
 
+# Đã xác định Thread ID của "Band FF" là 1
+ALLOWED_THREAD_ID = 1
+
 CONFIG_WEB = {
     "link4m": {"limit": 2, "tcoin": 1000, "name": "Link4M", "api_token": "667da5e0512ac00cba52fb6f"}
 }
@@ -27,14 +30,18 @@ def delete_message_later(chat_id, message_id, delay_seconds=600):
     except:
         pass
 
-def send_auto_delete_msg(chat_id, text, parse_mode="Markdown", reply_markup=None, reply_to_message_id=None):
-    sent = bot.send_message(
-        chat_id, 
-        text, 
-        parse_mode=parse_mode, 
-        reply_markup=reply_markup, 
-        reply_to_message_id=reply_to_message_id
-    )
+def send_auto_delete_msg(chat_id, text, parse_mode="Markdown", reply_markup=None, reply_to_message_id=None, message_thread_id=None):
+    kwargs = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": parse_mode,
+        "reply_markup": reply_markup,
+        "reply_to_message_id": reply_to_message_id
+    }
+    if message_thread_id:
+        kwargs["message_thread_id"] = message_thread_id
+        
+    sent = bot.send_message(**kwargs)
     t = threading.Thread(target=delete_message_later, args=(chat_id, sent.message_id, 600))
     t.daemon = True
     t.start()
@@ -50,11 +57,23 @@ def edit_or_send(call, text, reply_markup=None, parse_mode="Markdown"):
             reply_markup=reply_markup
         )
     except:
-        send_auto_delete_msg(call.message.chat.id, text, parse_mode=parse_mode, reply_markup=reply_markup)
+        thread_id = getattr(call.message, 'message_thread_id', None)
+        send_auto_delete_msg(call.message.chat.id, text, parse_mode=parse_mode, reply_markup=reply_markup, message_thread_id=thread_id)
+
+def check_thread(message):
+    thread_id = getattr(message, 'message_thread_id', None)
+    if ALLOWED_THREAD_ID is not None and thread_id != ALLOWED_THREAD_ID:
+        return False
+    return True
+
+@bot.message_handler(func=lambda m: not check_thread(m))
+def ignore_other_threads(message):
+    pass
 
 @bot.message_handler(commands=['start', 'help'])
 def start_cmd(m):
     user_name = m.from_user.first_name
+    thread_id = getattr(m, 'message_thread_id', None)
     text = (
         f"🤖 *HỆ THỐNG VƯỢT LINK & TÍCH LŨY TCOIN*\n"
         f"──────────────────────────\n"
@@ -69,7 +88,7 @@ def start_cmd(m):
         InlineKeyboardButton("🎁 Đổi Thưởng Key", callback_data="menu_doithuong")
     )
     
-    send_auto_delete_msg(m.chat.id, text, reply_markup=markup, reply_to_message_id=m.message_id)
+    send_auto_delete_msg(m.chat.id, text, reply_markup=markup, reply_to_message_id=m.message_id, message_thread_id=thread_id)
 
 def handle_vuot_link(call, web_key):
     user_id = call.from_user.id
@@ -117,9 +136,10 @@ def handle_vuot_link(call, web_key):
 
 @bot.message_handler(commands=['tk'])
 def tk_cmd(m):
-    show_account_info_msg(m.chat.id, m.from_user.id, m.from_user.first_name, m.message_id)
+    thread_id = getattr(m, 'message_thread_id', None)
+    show_account_info_msg(m.chat.id, m.from_user.id, m.from_user.first_name, m.message_id, thread_id)
 
-def show_account_info_msg(chat_id, user_id, user_name, reply_to_id=None):
+def show_account_info_msg(chat_id, user_id, user_name, reply_to_id=None, thread_id=None):
     user_id_str = str(user_id)
     today_str = time.strftime("%Y-%m-%d")
     try:
@@ -143,7 +163,7 @@ def show_account_info_msg(chat_id, user_id, user_name, reply_to_id=None):
         InlineKeyboardButton("🔄 Làm mới", callback_data="menu_tk"),
         InlineKeyboardButton("⬅️ Quay lại", callback_data="menu_home")
     )
-    send_auto_delete_msg(chat_id, text, reply_markup=markup, reply_to_message_id=reply_to_id)
+    send_auto_delete_msg(chat_id, text, reply_markup=markup, reply_to_message_id=reply_to_id, message_thread_id=thread_id)
 
 def show_account_info_call(call):
     user_id = call.from_user.id
@@ -174,9 +194,10 @@ def show_account_info_call(call):
 
 @bot.message_handler(commands=['doithuong'])
 def doithuong_cmd(m):
-    show_doi_thuong_msg(m.chat.id, m.message_id)
+    thread_id = getattr(m, 'message_thread_id', None)
+    show_doi_thuong_msg(m.chat.id, m.message_id, thread_id)
 
-def show_doi_thuong_msg(chat_id, reply_to_id=None):
+def show_doi_thuong_msg(chat_id, reply_to_id=None, thread_id=None):
     text = (
         f"🎁 *HỆ THỐNG ĐỔI THƯỞNG KEY*\n"
         f"──────────────────────────\n"
@@ -192,7 +213,7 @@ def show_doi_thuong_msg(chat_id, reply_to_id=None):
         InlineKeyboardButton("🎟️ Đổi Key 1 Tháng (30k TCOIN)", callback_data="doi_1thang"),
         InlineKeyboardButton("⬅️ Quay lại Menu Chính", callback_data="menu_home")
     )
-    send_auto_delete_msg(chat_id, text, reply_markup=markup, reply_to_message_id=reply_to_id)
+    send_auto_delete_msg(chat_id, text, reply_markup=markup, reply_to_message_id=reply_to_id, message_thread_id=thread_id)
 
 def show_doi_thuong_call(call):
     text = (
@@ -283,6 +304,7 @@ def process_doi_thuong(call, package):
 def handle_other_messages(message):
     text_lower = message.text.lower()
     chat_id = message.chat.id
+    thread_id = getattr(message, 'message_thread_id', None)
     
     if "admin" in text_lower or "chủ" in text_lower:
         reply_text = "📞 Vui lòng liên hệ Admin nếu bạn cần hỗ trợ thêm nhé!"
@@ -291,8 +313,8 @@ def handle_other_messages(message):
     else:
         reply_text = "🤖 Tôi là bot quản lý TCOIN tự động. Vui lòng sử dụng lệnh `/start` để mở bảng điều khiển chính."
         
-    send_auto_delete_msg(chat_id, reply_text, reply_to_message_id=message.message_id)
+    send_auto_delete_msg(chat_id, reply_text, reply_to_message_id=message.message_id, message_thread_id=thread_id)
 
-print("Bot TCOIN (Trích dẫn tin nhắn - Reply) đang chạy...")
+print("Bot TCOIN (Chỉ chạy ở Band FF - Thread ID: 1) đang chạy...")
 bot.infinity_polling(skip_pending=True)
-    
+                        
