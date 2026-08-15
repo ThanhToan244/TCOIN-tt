@@ -6,7 +6,7 @@ import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
 
 # --- CẤU HÌNH ---
-TOKEN = "8928629119:AAHFjOTJHrdwDHHJ8qqWkKE_vrF5kiC7lok"
+TOKEN = "8928629119:AAGZjEfgCAS6vrkbMyMJvcX_vQUuAnM-X6s"
 FIREBASE_URL = "https://tcoin-e983b-default-rtdb.firebaseio.com/"
 
 bot = telebot.TeleBot(TOKEN)
@@ -323,6 +323,6 @@ def handle_other_messages(message):
     send_auto_delete_msg(chat_id, reply_text, reply_to_message_id=message.message_id, message_thread_id=thread_id)
 
 if __name__ == "__main__":
-    print("Bot TCOIN đang chạy thuần túy (Không dùng Flask)...")
+    print("Bot TCOIN đang chạy thuần túy với Token mới...")
     bot.infinity_polling(skip_pending=True)
     
